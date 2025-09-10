@@ -1,12 +1,27 @@
-# AWS Three Tier Web Architecture
+# AWS Three Tier Web Application
 
 ## Description:
 
-This project is a hands-on walk through of a three-tier web architecture in AWS. We will be manually creating the necessary network, security, app, and database components and configurations in order to run this architecture in an available and scalable manner.
+This project demonstrates how to design and deploy a **3-tier architecture** on AWS, following industry best practices.  
 
-## Audience:
+The stack consists of:
+- **Frontend (Web Tier)**: React app served via Nginx on EC2
+- **Backend (App Tier)**: Node.js application on private EC2
+- **Database (DB Tier)**: Amazon Aurora (MySQL-compatible)
+- **Networking**: VPC with public and private subnets, Internet Gateway, NAT Gateway
+- **Load Balancers**: Internet-facing ALB (for web), Internal ALB (for app)
+- **IAM & SSM**: Secure access without SSH keys
 
-It is intended for those who have a technical role. The assumption is that you have at least some foundational aws knowledge around VPC, EC2, RDS, S3, ELB and the AWS Console.
+## 🔹 AWS Services Used
+- **VPC** with 6 subnets (2 public, 2 private-app, 2 private-db)
+- **Security Groups** (LB SG, Web SG, Internal LB SG, App SG, DB SG)
+- **EC2 Instances** (Amazon Linux 2023 / 2)
+- **Elastic Load Balancers (ALB)** (internet-facing + internal)
+- **Amazon Aurora (MySQL-compatible)** with DB subnet group
+- **IAM Role with AmazonSSMManagedInstanceCore** for EC2
+- **AWS Systems Manager (SSM)** for secure instance access
+- **S3** (optional, for code hosting)
+- **CloudWatch** for monitoring
 
 ## Pre-requisites:
 
@@ -19,6 +34,97 @@ It is intended for those who have a technical role. The assumption is that you h
 ![Architecture Diagram](/demos/3TierArch.png)
 
 In this architecture, a public-facing Application Load Balancer forwards client traffic to our web tier EC2 instances. The web tier is running Nginx webservers that are configured to serve a React.js website and redirects our API calls to the application tier’s internal facing load balancer. The internal facing load balancer then forwards that traffic to the application tier, which is written in Node.js. The application tier manipulates data in an Aurora MySQL multi-AZ database and returns it to our web tier. Load balancing, health checks and autoscaling groups are created at each layer to maintain the availability of this architecture.
+
+---
+
+## 🔹 Step-by-Step Setup
+
+### 1. VPC & Subnets
+1. Create a VPC:  
+   - CIDR: `10.0.0.0/16`  
+   - Name: **`<YOUR_VPC_NAME>`**
+2. Create 6 subnets (spread across 2 AZs):  
+   - **Public Subnets**: **`<YOUR_PUBLIC_SUBNET_1>`**, **`<YOUR_PUBLIC_SUBNET_2>`**  
+   - **Private App Subnets**: **`<YOUR_PRIVATE_APP_SUBNET_1>`**, **`<YOUR_PRIVATE_APP_SUBNET_2>`**  
+   - **Private DB Subnets**: **`<YOUR_PRIVATE_DB_SUBNET_1>`**, **`<YOUR_PRIVATE_DB_SUBNET_2>`**  
+3. Attach Internet Gateway to VPC.  
+4. Create NAT Gateway in public subnet.  
+5. Update Route Tables:
+   - Public → IGW  
+   - Private → NAT  
+
+---
+
+---
+
+### 2. Security Groups
+Create the following SGs (replace names with your convention):
+
+- **Internet-facing LB SG** (**`<YOUR_LB_SG>`**)  
+  - Inbound: HTTP (80) from `0.0.0.0/0`  
+- **Web Tier SG** (**`<YOUR_WEB_SG>`**)  
+  - Inbound: HTTP (80) from LB SG  
+- **Internal LB SG** (**`<YOUR_INTERNAL_LB_SG>`**)  
+  - Inbound: HTTP (80) from Web SG  
+- **App Tier SG** (**`<YOUR_APP_SG>`**)  
+  - Inbound: App Port (4000) from Internal LB SG  
+- **DB SG** (**`<YOUR_DB_SG>`**)  
+  - Inbound: MySQL (3306) from App SG  
+
+---
+
+
+### 3. Database Setup (Aurora MySQL)
+1. Create **DB subnet group** with the 2 DB subnets.  
+2. Create **Aurora MySQL cluster**:  
+   - Engine: MySQL-compatible Aurora  
+   - Instance type: `db.t3.micro` (free-tier if available)  
+   - Subnet group: **`<YOUR_DB_SUBNET_GROUP>`**  
+   - Security group: **DB SG**  
+3. Note the **Writer endpoint** for later.
+
+---
+
+### 4. EC2 Setup
+#### Web Tier (Public EC2)
+1. Launch EC2 in **public subnet** with **Web SG**.  
+2. Attach IAM Role: `AmazonSSMManagedInstanceCore`.  
+3. Install Nginx:  
+   ```bash
+   sudo dnf install nginx -y
+   sudo systemctl enable nginx
+   sudo systemctl start nginx
+4. Deploy React build files under /usr/share/nginx/html.
+
+#### App Tier (Private EC2)
+1. Launch EC2 in private app subnet with App SG.
+2. Attach IAM Role: AmazonSSMManagedInstanceCore.
+3. Install Node.js + MySQL client.
+4. Clone app repo / download source from S3.
+5. Configure .env with:
+   ```bash
+   DB_HOST=<YOUR_RDS_ENDPOINT>
+   DB_USER=<YOUR_DB_USER>
+   DB_PASS=<YOUR_DB_PASS>
+   DB_NAME=<YOUR_DB_NAME>
+   PORT=4000
+
+
+### 5. Load Balancers
+Internet-facing ALB:
+  Subnets: Public subnets
+  Target Group: Web EC2s (port 80)
+Internal ALB:
+  Subnets: Private App subnets
+  Target Group: App EC2s (port 4000)
+
+### 6. Application Flow
+User opens ALB DNS → routes to Web EC2 (Nginx).
+Web app proxies /api calls to internal ALB.
+Internal ALB forwards requests to App EC2.
+App EC2 queries Aurora DB and returns data.
+
+
 
 ## Setup - Part 0
 
