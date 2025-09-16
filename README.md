@@ -11,7 +11,7 @@ The stack consists of:
 - **Load Balancers**: Internet-facing ALB (for web), Internal ALB (for app)
 - **IAM & SSM**: Secure access without SSH keys
 
-## 🔹 AWS Services Used
+## AWS Services Used
 - **VPC** with 6 subnets (2 public, 2 private-app, 2 private-db)
 - **Security Groups** (LB SG, Web SG, Internal LB SG, App SG, DB SG)
 - **EC2 Instances** (Amazon Linux 2023 / 2)
@@ -25,12 +25,10 @@ The stack consists of:
 
 ## Architecture Overview
 
-![Architecture Diagram](/demos/3TierArch.png)
-
 In this architecture, a public-facing Application Load Balancer forwards client traffic to our web tier EC2 instances. The web tier is running Nginx webservers that are configured to serve a React.js website and redirects our API calls to the application tier’s internal facing load balancer. The internal facing load balancer then forwards that traffic to the application tier, which is written in Node.js. The application tier manipulates data in an Aurora MySQL multi-AZ database and returns it to our web tier. Load balancing, health checks and autoscaling groups are created at each layer to maintain the availability of this architecture.
 
 
-## 🔹 Step-by-Step Setup
+## Step-by-Step Setup
 
 ### 1. VPC & Subnets
 1. Create a VPC:  
@@ -64,7 +62,6 @@ Create the following Security Groups:
   - Inbound: MySQL/Aurora (3306) from **`3-tier-app-tier-sg`**
 
 ---
-
 
 ### 3. Database Setup (Aurora MySQL)
 1. Create **DB subnet group** **`3-tier-db-subnet-group`** with the 2 DB subnets **`3-tier-private-db-subnet-az-1`** and **`3-tier-private-db-subnet-az-2`**  
@@ -121,7 +118,6 @@ Web app proxies/API calls to internal ALB.
 Internal ALB forwards requests to App EC2.
 App EC2 queries Aurora DB and returns data.
 
-
 ### Validation
 Visit Public ALB DNS → website loads.
 Add sample data in UI → verify entries saved in DB via MySQL client.
@@ -134,7 +130,5 @@ Delete RDS Cluster.
 Delete NAT Gateway.
 Delete VPC.
 
-
 ## License
-
 This library is licensed under the MIT-0 License. See the LICENSE file.
